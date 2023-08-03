@@ -1,0 +1,93 @@
+---
+title: "Project2MattWork"
+author: "Matthew D. Cusack"
+date: "2023-08-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+
+# rename columns
+adult <- rename(adult, age = V1)
+adult <- rename(adult, workclass = V2)
+adult <- rename(adult, fnlwgt = V3)
+adult <- rename(adult, education = V4)
+adult <- rename(adult, 'education-num' = V5)
+adult <- rename(adult, 'marital-status' = V6)
+adult <- rename(adult, occupation = V7)
+adult <- rename(adult, relationship = V8)
+adult <- rename(adult, race = V9)
+adult <- rename(adult, sex = V10)
+adult <- rename(adult, 'capital-gain' = V11)
+adult <- rename(adult, 'capital-loss' = V12)
+adult <- rename(adult, 'hours-per-week' = V13)
+adult <- rename(adult, 'native-country' = V14)
+adult <- rename(adult, class = V15)
+
+adult <- rename(adult, education_num = 'education-num')
+adult <- rename(adult, marital_status  = 'marital-status')
+adult <- rename(adult, capital_gain  = 'capital-gain')
+adult <- rename(adult, capital_loss = 'capital-loss')
+adult <- rename(adult, hours_per_week = 'hours-per-week')
+adult <- rename(adult, native_country = 'native-country')
+```
+
+```{r}
+table(adult$class)
+```
+
+```{r}
+# Convert the class variable to a factor
+adult$class <- as.factor(adult$class)
+
+# Train/Validation Split
+library(caret)
+set.seed(4321)
+trainIndex<-createDataPartition(adult$class,p=.7,list=F)  #p: proportion of data in train
+
+training<-adult[trainIndex,]
+validate<-adult[-trainIndex,]
+```
+
+```{r}
+library(MASS)
+
+# fit LDA or QDA model (QDA may be best for size)
+# Fit the QDA model to the training set
+qda.model <- qda(class ~ age + workclass + education + marital_status + occupation + relationship + race + sex + hours_per_week + native_country, data = training)
+
+# Predict the response variable for the test set
+qda.predictions <- predict(qda.model, newdata = validate)$class
+
+# Evaluate the model performance
+cm <- table(qda.predictions, validate$class)
+accuracy <- sum(diag(cm)) / sum(cm)
+
+# Print the accuracy
+print(accuracy)
+```
+
+```{r}
+library(rpart)
+
+# Create the classification tree model
+tree.model <- rpart(class ~ ., data = training)
+
+# Predict the response variable for the validation set
+tree.predictions <- predict(tree.model, newdata = validate)
+
+# Convert the predictions to a factor
+tree.predictions <- as.factor(tree.predictions)
+
+# Evaluate the model performance
+cm <- table(tree.predictions, validate$class)
+accuracy <- sum(diag(cm)) / sum(cm)
+
+# Print the accuracy
+print(accuracy)
+```
