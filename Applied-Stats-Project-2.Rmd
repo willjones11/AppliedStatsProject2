@@ -1,0 +1,165 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-07-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+data = read_csv('/Users/williamjones/Downloads/adult/adult.data', col_names =  c('age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 
+                                                                             'occupation', 'relationship', 'race', 'sex'))
+head(data)
+```
+#EDA
+```{r}
+library(ggplot2)
+library(dplyr)
+library(GGally)
+
+#breakdown of eductation
+data$education <- factor(data$education, c('Preschool', '1st-4th', '5th-6th','7th-8th', '9th', '10th', '11th', '12th', 'HS-grad',
+                                           'Some-college', 'Assoc-voc', 'Assoc-acdm', 'Bachelors', 'Masters',
+                                           'Prof-school', 'Doctorate'))
+data %>% ggplot(aes(x=education)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+#breakdown of marital status
+data %>% ggplot(aes(x=`marital-status`)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+#breakdown of sex
+data %>% ggplot(aes(x=sex)) +
+  geom_histogram(stat='count')
+
+#breakdown of race
+data %>% ggplot(aes(x=race)) +
+                  geom_histogram(stat='count')
+
+#Breakdown of occupation status
+data %>% ggplot(aes(x=workclass)) + 
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+#breakdown of age
+data %>% ggplot(aes(x=age)) + 
+  geom_histogram(stat='bin', colour='black', fill='red')
+
+#breakdown of pay
+data %>% ggplot(aes(x=fnlwgt)) +
+  geom_histogram(stat='bin', colour = 'black', fill='red')
+
+#age vs. pay
+data %>% ggplot(aes(x=age, y=fnlwgt)) + geom_point()
+
+#age vs. pay per sex 
+data %>%  ggplot(aes(x=age, y=fnlwgt, colour = sex)) + geom_point()
+
+#age vs. pay per race
+data %>%  ggplot(aes(x=age, y=fnlwgt, colour = race)) + geom_point()
+
+#breakdown of education per sex
+data %>% ggplot(aes(x=education, colour = sex, fill=sex)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+#Breakdown of occupation status
+data %>% ggplot(aes(x=workclass,fill=sex, colour=sex)) + 
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+# breakdown of over/under 50k
+data %>% ggplot(aes(x=X15)) + 
+  geom_histogram(stat='count')
+
+
+data$y <- ifelse(data$X15 == '>50K', 1, 0)
+
+print(data)
+#Pay by age per sex
+ggplot(data, aes(x=age, y=y, colour=sex)) + geom_point() +
+  geom_smooth(method="loess", linewidth=1)
+
+#pay by age per marital status
+ggplot(data, aes(x=age, y=y, colour=factor(`marital-status`))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(`marital-status`))
+
+#pay by age per race
+ggplot(data, aes(x=fnlwgt, y=y, colour=factor(race))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(race))
+
+#pay by age per workclass
+ggplot(data, aes(x=age, y=y, colour=factor(workclass))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(workclass))
+
+#pay by age per state
+ggplot(data, aes(x=age, y=y, colour=factor(X14))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(X14))
+
+#pay by education per sex
+ggplot(data, aes(x=`education-num`, y= y, colour=sex)) + geom_point() +
+  geom_smooth(method="loess", linewidth=1)
+
+#pay by education per race
+ggplot(data, aes(x=`education-num`, y=y, colour=factor(race))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(race))
+
+#pay by education per workclass
+ggplot(data, aes(x=`education-num`, y=y, colour=factor(workclass))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(workclass))
+
+#pay by education per country
+ggplot(data, aes(x=age, y=y, colour=factor(X14))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(X14))
+```
+#mlr 
+#has no normality assumption so response can be skewed
+```{r}
+
+#splitting the data into test/train split
+data$make <- ifelse(data$X15 == '<=50k', 'No', 'Yes')
+trainIndex <- createDataPartition(data$X15, p=.7, list=F)
+train <- data[trainIndex,]
+test <- data[-trainIndex,]
+
+#modeling everything 
+head(train)
+full.model <- glm(factor(X15)~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14,data = train, family='binomial')
+summary(full.model)
+vif(full.model)
+
+
+
+fitControl <- trainControl(method="repeatedcv", number=5, repeats=1, classProbs = TRUE, summaryFunction=mnLogLoss)
+set.seed(1234)
+
+step.fit <- train(X15~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14,
+                  data = train,
+                  method="glmStepAIC", 
+                  trControl=fitControl, 
+                  metric='logLoss')
+coef(Step.fit$finalModel)
+glmnet.fit <- train(factor(X15)~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14, 
+                    data = train, 
+                    method = "glmnet", 
+                    trControl=fitControl, 
+                    metric='logLoss')
+coef(glmnet.fit$finalModel, glmnet.fit$finalModel$lamdaOpt)
+```
