@@ -10,6 +10,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+adult <- read.csv("E:/Docs/School/SMU-MSDS/Trimester 2/DS 6372 Applied Statistics/Unit 15 Project 2/adult/adult.data", header=FALSE)
+```
+
+```{r}
 library(dplyr)
 
 # rename columns
@@ -17,34 +21,33 @@ adult <- rename(adult, age = V1)
 adult <- rename(adult, workclass = V2)
 adult <- rename(adult, fnlwgt = V3)
 adult <- rename(adult, education = V4)
-adult <- rename(adult, 'education-num' = V5)
-adult <- rename(adult, 'marital-status' = V6)
+adult <- rename(adult, education_num = V5)
+adult <- rename(adult, marital_status = V6)
 adult <- rename(adult, occupation = V7)
 adult <- rename(adult, relationship = V8)
 adult <- rename(adult, race = V9)
 adult <- rename(adult, sex = V10)
-adult <- rename(adult, 'capital-gain' = V11)
-adult <- rename(adult, 'capital-loss' = V12)
-adult <- rename(adult, 'hours-per-week' = V13)
-adult <- rename(adult, 'native-country' = V14)
+adult <- rename(adult, capital_gain = V11)
+adult <- rename(adult, capital_loss = V12)
+adult <- rename(adult, hours_per_week = V13)
+adult <- rename(adult, native_country = V14)
 adult <- rename(adult, class = V15)
-
-adult <- rename(adult, education_num = 'education-num')
-adult <- rename(adult, marital_status  = 'marital-status')
-adult <- rename(adult, capital_gain  = 'capital-gain')
-adult <- rename(adult, capital_loss = 'capital-loss')
-adult <- rename(adult, hours_per_week = 'hours-per-week')
-adult <- rename(adult, native_country = 'native-country')
 ```
 
 ```{r}
 table(adult$class)
-```
 
-```{r}
 # Convert the class variable to a factor
 adult$class <- as.factor(adult$class)
 
+# Create a new column called "class.num"
+#adult$class.num <- ifelse(adult$class == "<=50K", 0, 1)
+
+table(adult$class.num)
+
+```
+
+```{r}
 # Train/Validation Split
 library(caret)
 set.seed(4321)
@@ -56,20 +59,39 @@ validate<-adult[-trainIndex,]
 
 ```{r}
 library(MASS)
+library(caret)
 
-# fit LDA or QDA model (QDA may be best for size)
-# Fit the QDA model to the training set
-qda.model <- qda(class ~ age + workclass + education + marital_status + occupation + relationship + race + sex + hours_per_week + native_country, data = training)
+# LDA model
+lda.model <- lda(class ~ age + education + marital_status + occupation + relationship + race + sex + hours_per_week + native_country, data = training)
 
 # Predict the response variable for the test set
-qda.predictions <- predict(qda.model, newdata = validate)$class
+lda.predictions <- predict(lda.model, newdata = validate)$class
 
 # Evaluate the model performance
-cm <- table(qda.predictions, validate$class)
+cm <- table(lda.predictions, validate$class)
 accuracy <- sum(diag(cm)) / sum(cm)
 
 # Print the accuracy
 print(accuracy)
+
+#Calculate the confusion matrix
+confusion_matrix = table(validate$class, lda.predictions)
+
+#Calculate the sensitivity, specificity, prevalence, PPV, NPV, and AUROC
+sensitivity = confusion_matrix[1, 1] / sum(confusion_matrix[1, ])
+specificity = confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+prevalence = sum(confusion_matrix[1, ]) / nrow(validate)
+ppv = confusion_matrix[1, 1] / sum(confusion_matrix[, 1])
+npv = confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
+auc = pROC::auc(validate$class, lda.predictions)
+
+#Print the results
+print(paste("Sensitivity:", sensitivity))
+print(paste("Specificity:", specificity))
+print(paste("Prevalence:", prevalence))
+print(paste("PPV:", ppv))
+print(paste("NPV:", npv))
+print(paste("AUROC:", auc))
 ```
 
 ```{r}
