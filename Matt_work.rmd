@@ -83,7 +83,7 @@ specificity = confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
 prevalence = sum(confusion_matrix[1, ]) / nrow(validate)
 ppv = confusion_matrix[1, 1] / sum(confusion_matrix[, 1])
 npv = confusion_matrix[2, 2] / sum(confusion_matrix[, 2])
-auc = pROC::auc(validate$class, lda.predictions)
+#auc = pROC::auc(validate$class, lda.predictions)
 
 #Print the results
 print(paste("Sensitivity:", sensitivity))
@@ -91,7 +91,7 @@ print(paste("Specificity:", specificity))
 print(paste("Prevalence:", prevalence))
 print(paste("PPV:", ppv))
 print(paste("NPV:", npv))
-print(paste("AUROC:", auc))
+#print(paste("AUROC:", auc))
 ```
 
 ```{r}
