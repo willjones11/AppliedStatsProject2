@@ -8,14 +8,9 @@ date: "2023-07-28"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
+#Reading in the Data
 ```{r}
-data = read_csv('/Users/williamjones/Downloads/adult/adult.data', col_names =  c('age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 
+data = read_csv('https://raw.githubusercontent.com/willjones11/AppliedStatsProject2/main/adult.data', col_names =  c('age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 
                                                                              'occupation', 'relationship', 'race', 'sex'))
 head(data)
 ```
@@ -25,11 +20,12 @@ library(ggplot2)
 library(dplyr)
 library(GGally)
 
-#breakdown of education
-data$education <- factor(data$education, c('Preschool', '1st-4th', '5th-6th','7th-8th', '9th', '10th', '11th', '12th', 'HS-grad',
+#breakdown of eductation
+temp <- data.frame(data)
+temp$education <- factor(temp$education, c('Preschool', '1st-4th', '5th-6th','7th-8th', '9th', '10th', '11th', '12th', 'HS-grad',
                                            'Some-college', 'Assoc-voc', 'Assoc-acdm', 'Bachelors', 'Masters',
                                            'Prof-school', 'Doctorate'))
-data %>% ggplot(aes(x=education)) +
+temp %>% ggplot(aes(x=education)) +
   geom_histogram(stat='count') + 
   scale_x_discrete(guide = guide_axis(angle = 45))
 
@@ -129,37 +125,50 @@ ggplot(data, aes(x=age, y=y, colour=factor(X14))) + geom_point() +
   geom_smooth(method="loess", linewidth=1) +
   facet_wrap(~factor(X14))
 ```
-#mlr 
-#has no normality assumption so response can be skewed
+#A train/test split is conducted on the dataset
 ```{r}
 
 #splitting the data into test/train split
-data$make <- ifelse(data$X15 == '<=50k', 'No', 'Yes')
+data$make <- factor(ifelse(data$X15 == '>50K', "Yes", "No"))
 trainIndex <- createDataPartition(data$X15, p=.7, list=F)
 train <- data[trainIndex,]
 test <- data[-trainIndex,]
+```
 
+# Objective 1
+#Now we will get into trying to conduct predictive model since the response variable is binomial we will try to conduct a multiple logistic regression model 
+#
+```{r}
+library(ResourceSelection)
+library(caret)
 #modeling everything 
-head(train)
-full.model <- glm(factor(X15)~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14,data = train, family='binomial')
-summary(full.model)
+full.model <- glm(make~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14,data = train, family='binomial')
+
+#check for multicolinearity
 vif(full.model)
 
+#Assessing the goodness of fit
+hoslem.test(train$make, fitted(full.model))
 
+#odds ratio interpretation of variable
+exp(cbind("Odds Ratio" = coef(full.model), confint.default(full.model, level = 0.95)))
 
-fitControl <- trainControl(method="repeatedcv", number=5, repeats=1, classProbs = TRUE, summaryFunction=mnLogLoss)
-set.seed(1234)
+# Predict the response variable for the test set
+prob <- predict(full.model, test, type="response", se.fit=FALSE)
+pred <- factor(ifelse(prob > 0.5,"Yes","No"))
+#create confusion matrix
+confusionMatrix(test$make, pred)
 
-step.fit <- train(X15~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14,
-                  data = train,
-                  method="glmStepAIC", 
-                  trControl=fitControl, 
-                  metric='logLoss')
-coef(Step.fit$finalModel)
-glmnet.fit <- train(factor(X15)~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14, 
-                    data = train, 
-                    method = "glmnet", 
-                    trControl=fitControl, 
-                    metric='logLoss')
-coef(glmnet.fit$finalModel, glmnet.fit$finalModel$lamdaOpt)
 ```
+#From VIF check 
+# looking at the variableds from the generalized square variance inflation factor most of the variables are not suspected of mutlicolinearity but relationship and `marital status` have a high VIF so they should be removed from further models because of the mutlicolinearity
+# The Hosmer Lemeshow test yielded a p-value of 2.2e-16 indicating that the current model fits the data well.  
+# Some interpretations of the variables based upon the odds ratio
+#
+#The odds of 
+#
+#
+#
+#
+#
+#
