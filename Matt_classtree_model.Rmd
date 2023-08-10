@@ -1,0 +1,100 @@
+---
+title: "OtherModelP2"
+author: "Matthew D. Cusack"
+date: "2023-08-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+
+# import data
+adult <- read.csv("E:/Docs/School/SMU-MSDS/Trimester 2/DS 6372 Applied Statistics/Unit 15 Project 2/adult/adult.data", header=FALSE)
+
+# rename columns
+adult <- rename(adult, age = V1)
+adult <- rename(adult, workclass = V2)
+adult <- rename(adult, fnlwgt = V3)
+adult <- rename(adult, education = V4)
+adult <- rename(adult, education_num = V5)
+adult <- rename(adult, marital_status = V6)
+adult <- rename(adult, occupation = V7)
+adult <- rename(adult, relationship = V8)
+adult <- rename(adult, race = V9)
+adult <- rename(adult, sex = V10)
+adult <- rename(adult, capital_gain = V11)
+adult <- rename(adult, capital_loss = V12)
+adult <- rename(adult, hours_per_week = V13)
+adult <- rename(adult, native_country = V14)
+adult <- rename(adult, class = V15)
+
+# Trim leading and trailing spaces from all character and factor columns -Oneal
+adult[] = lapply(adult, function(x) if(is.character(x) | is.factor(x)) trimws(x) else x)
+
+# Removing rows with '?' -Oneal
+adult = subset(adult, !(workclass == "?" | education == "?" | occupation == "?" | native_country == "?"))
+
+table(adult$class)
+
+# Change class to 0 and 1
+adult <- adult %>%
+  mutate(class = ifelse(class == '<=50K', 0, 1))
+
+# Convert the class variable to a factor
+adult$class <- as.numeric(adult$class)
+
+table(adult$class)
+```
+
+```{r}
+# Train/Validation Split
+library(caret)
+set.seed(4321)
+trainIndex<-createDataPartition(adult$class,p=.7,list=F)  #p: proportion of data in train
+
+training<-adult[trainIndex,]
+validate<-adult[-trainIndex,]
+```
+
+```{r}
+library(rpart)
+
+# Create the classification tree model
+tree.model <- rpart(class ~ ., data = training)
+
+# Predict the response variable for the validation set
+tree.predictions <- predict(tree.model, newdata = validate)
+
+# Convert the predictions to a factor
+tree.predictions <- as.factor(tree.predictions)
+
+# Confusion Matrix
+cm <- table(tree.predictions, validate$class)
+cm
+```
+
+```{r}
+#Calculate the accuracy, sensitivity, specificity, prevalence, PPV, NPV, and AUROC
+accuracy <- (sum(diag(cm)) / sum(cm)) * 100
+sensitivity = cm[1, 1] / sum(cm[1, ])
+specificity = cm[2, 2] / sum(cm[2, ])
+prevalence = sum(cm[1, ]) / nrow(validate)
+ppv = cm[1, 1] / sum(cm[, 1])
+npv = cm[2, 2] / sum(cm[, 2])
+#auc <- pROC::auc(validate$class, lda.predictions)
+# Calculate the AUROC using predicted class labels
+#roc_auc <- roc(response = validate$class, predictor = lda.predictions)$auc
+
+#Print the results
+print(paste("Accuracy:", accuracy, "%"))
+print(paste("Sensitivity:", sensitivity))
+print(paste("Specificity:", specificity))
+print(paste("Prevalence:", prevalence))
+print(paste("PPV:", ppv))
+print(paste("NPV:", npv))
+#print(paste("AUROC:", auc))
+```
