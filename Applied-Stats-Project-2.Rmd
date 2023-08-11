@@ -7,18 +7,65 @@ date: "2023-07-28"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+#Installing required packages
+```{r}
+# Install the necessary packages
+install.packages(c("dplyr", "tidyr", "glmnet", "pROC", "MASS", "car", "polynom", "interactions", "corrplot", "ggplot2", "ggthemes", "ResourceSeelction", "caret", "rpart"))
+
+# Load the required libraries
+library(dplyr)
+library(tidyr)
+library(glmnet)
+library(caret)
+library(pROC)
+library(MASS)
+library(car)
+library(polynom)
+library(interactions)
+library(corrplot)
+library(ggplot2)
+library(ResourceSelection)
+library(rpart)
+
+```
 
 #Reading in the Data
 ```{r}
-data = read_csv('https://raw.githubusercontent.com/willjones11/AppliedStatsProject2/main/adult.data', col_names =  c('age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 
-                                                                             'occupation', 'relationship', 'race', 'sex'))
-head(data)
+
+# import data
+data <- read.csv('https://raw.githubusercontent.com/willjones11/AppliedStatsProject2/main/adult.data', header=FALSE)
+
+# rename columns
+data <- rename(data, age = V1)
+data <- rename(data, workclass = V2)
+data <- rename(data, fnlwgt = V3)
+data <- rename(data, education = V4)
+data <- rename(data, education_num = V5)
+data <- rename(data, marital_status = V6)
+data <- rename(data, occupation = V7)
+data <- rename(data, relationship = V8)
+data <- rename(data, race = V9)
+data <- rename(data, sex = V10)
+data <- rename(data, capital_gain = V11)
+data <- rename(data, capital_loss = V12)
+data <- rename(data, hours_per_week = V13)
+data <- rename(data, native_country = V14)
+data <- rename(data, class = V15)
+
+# Trim leading and trailing spaces from all character and factor columns -Oneal
+data[] = lapply(data, function(x) if(is.character(x) | is.factor(x)) trimws(x) else x)
+
+# Removing rows with '?' -Oneal
+data = subset(data, !(workclass == "?" | education == "?" | occupation == "?" | native_country == "?"))
+
+
+
 ```
 #EDA
 ```{r}
 library(ggplot2)
 library(dplyr)
-library(GGally)
+library(ggthemes)
 
 #breakdown of eductation
 temp <- data.frame(data)
@@ -30,17 +77,31 @@ temp %>% ggplot(aes(x=education)) +
   scale_x_discrete(guide = guide_axis(angle = 45))
 
 #breakdown of marital status
-data %>% ggplot(aes(x=`marital-status`)) +
+data %>% ggplot(aes(x= marital_status)) +
   geom_histogram(stat='count') + 
   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 #breakdown of sex
-data %>% ggplot(aes(x=sex)) +
+data %>% ggplot(aes(x=sex, fill=sex)) +
   geom_histogram(stat='count')
-
-#breakdown of race
+ggsave('sex.png')
+#breakdown of sex per pay
+data %>% ggplot(aes(x=sex, fill=class)) +
+  geom_histogram(stat='count')
+ggsave('SexperPay.png')
+#breakdown of race 
 data %>% ggplot(aes(x=race)) +
-                  geom_histogram(stat='count')
+                  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) + 
+  ggtitle('Break down of Race') + theme_economist()
+ggsave("Race.png")
+
+#breakdown of race 
+data %>% ggplot(aes(x=race, colour=class, fill=class)) +
+                  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) + 
+  ggtitle('Break down of Race') + theme_economist()
+ggsave("RaceperPay.png")
 
 #Breakdown of occupation status
 data %>% ggplot(aes(x=workclass)) + 
@@ -48,48 +109,60 @@ data %>% ggplot(aes(x=workclass)) +
   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 #breakdown of age
-data %>% ggplot(aes(x=age)) + 
-  geom_histogram(stat='bin', colour='black', fill='red')
+data %>% ggplot(aes(x=age, fill=class)) + 
+  geom_histogram(stat='bin')
+ggsave("AgeperPay.png")
 
-#breakdown of pay
+#breakdown of representation
 data %>% ggplot(aes(x=fnlwgt)) +
   geom_histogram(stat='bin', colour = 'black', fill='red')
 
-#age vs. pay
+#age vs. representation
 data %>% ggplot(aes(x=age, y=fnlwgt)) + geom_point()
 
-#age vs. pay per sex 
+#age vs. representation per sex 
 data %>%  ggplot(aes(x=age, y=fnlwgt, colour = sex)) + geom_point()
 
-#age vs. pay per race
+#age vs. representation per race
 data %>%  ggplot(aes(x=age, y=fnlwgt, colour = race)) + geom_point()
 
 #breakdown of education per sex
-data %>% ggplot(aes(x=education, colour = sex, fill=sex)) +
+data %>% ggplot(aes(x=education)) +
   geom_histogram(stat='count') + 
   scale_x_discrete(guide = guide_axis(angle = 45))
-
+ggsave('Education.png')
+#breakdown of education per sex
+data %>% ggplot(aes(x=education, fill=class)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45))
+ggsave('EducationperPay.png')
 #Breakdown of occupation status
 data %>% ggplot(aes(x=workclass,fill=sex, colour=sex)) + 
   geom_histogram(stat='count') + 
   scale_x_discrete(guide = guide_axis(angle = 45)) 
 
 # breakdown of over/under 50k
-data %>% ggplot(aes(x=X15)) + 
+data %>% ggplot(aes(x=class)) + 
   geom_histogram(stat='count')
 
+#breakdown of hours per week 
+data %>% ggplot(aes(x=hours_per_week)) + geom_histogram(stat='count')
 
-data$y <- ifelse(data$X15 == '>50K', 1, 0)
+#breakdown of hours per week by class
+data %>% ggplot(aes(x=hours_per_week, fill=class)) + 
+  geom_histogram(stat='count') 
 
-print(data)
+data$y <- ifelse(data$class == '>50K', 1, 0)
+
+
 #Pay by age per sex
 ggplot(data, aes(x=age, y=y, colour=sex)) + geom_point() +
   geom_smooth(method="loess", linewidth=1)
 
 #pay by age per marital status
-ggplot(data, aes(x=age, y=y, colour=factor(`marital-status`))) + geom_point() +
+ggplot(data, aes(x=age, y=y, colour=factor(marital_status))) + geom_point() +
   geom_smooth(method="loess", linewidth=1) +
-  facet_wrap(~factor(`marital-status`))
+  facet_wrap(~factor(marital_status))
 
 #pay by age per race
 ggplot(data, aes(x=fnlwgt, y=y, colour=factor(race))) + geom_point() +
@@ -102,35 +175,44 @@ ggplot(data, aes(x=age, y=y, colour=factor(workclass))) + geom_point() +
   facet_wrap(~factor(workclass))
 
 #pay by age per state
-ggplot(data, aes(x=age, y=y, colour=factor(X14))) + geom_point() +
+ggplot(data, aes(x=age, y=y, colour=factor(native_country))) + geom_point() +
   geom_smooth(method="loess", linewidth=1) +
-  facet_wrap(~factor(X14))
+  facet_wrap(~factor(native_country))
 
 #pay by education per sex
-ggplot(data, aes(x=`education-num`, y= y, colour=sex)) + geom_point() +
+ggplot(data, aes(x=education_num, y= y, colour=sex)) + geom_point() +
   geom_smooth(method="loess", linewidth=1)
 
 #pay by education per race
-ggplot(data, aes(x=`education-num`, y=y, colour=factor(race))) + geom_point() +
+ggplot(data, aes(x=education_num, y=y, colour=factor(race))) + geom_point() +
   geom_smooth(method="loess", linewidth=1) +
   facet_wrap(~factor(race))
 
 #pay by education per workclass
-ggplot(data, aes(x=`education-num`, y=y, colour=factor(workclass))) + geom_point() +
+ggplot(data, aes(x=education_num, y=y, colour=factor(workclass))) + geom_point() +
   geom_smooth(method="loess", linewidth=1) +
   facet_wrap(~factor(workclass))
 
 #pay by education per country
-ggplot(data, aes(x=age, y=y, colour=factor(X14))) + geom_point() +
+ggplot(data, aes(x=age, y=y, colour=factor(native_country))) + geom_point() +
   geom_smooth(method="loess", linewidth=1) +
-  facet_wrap(~factor(X14))
+  facet_wrap(~factor(native_country))
+
+
 ```
 #A train/test split is conducted on the dataset
 ```{r}
 
 #splitting the data into test/train split
-data$make <- factor(ifelse(data$X15 == '>50K', "Yes", "No"))
-trainIndex <- createDataPartition(data$X15, p=.7, list=F)
+data$class_factor <- factor(ifelse(data$class == '>50K', "Yes", "No"))
+
+# Define the columns to be treated as factors
+factor_columns <-  c("workclass", "education", "marital_status", "occupation", "relationship", "race", "sex", "native_country")
+print(data[factor_columns])
+# Convert these columns to factors
+data[factor_columns] <- lapply(data[factor_columns], factor)
+set.seed(123)
+trainIndex <- createDataPartition(data$class, p=.7, list=F)
 train <- data[trainIndex,]
 test <- data[-trainIndex,]
 ```
@@ -139,16 +221,15 @@ test <- data[-trainIndex,]
 #Now we will get into trying to conduct predictive model since the response variable is binomial we will try to conduct a multiple logistic regression model 
 #
 ```{r}
-library(ResourceSelection)
-library(caret)
+
 #modeling everything 
-full.model <- glm(make~age+`marital-status`+`education-num`+occupation+relationship+sex+race+X11+X12+X13+X14,data = train, family='binomial')
+full.model <- glm(class_factor~age+marital_status+education_num+occupation+relationship+sex+race+capital_gain+capital_loss+hours_per_week+native_country,data = train, family='binomial')
 
 #check for multicolinearity
 vif(full.model)
 
 #Assessing the goodness of fit
-hoslem.test(train$make, fitted(full.model))
+hoslem.test(train$class_factor, fitted(full.model))
 
 #odds ratio interpretation of variable
 exp(cbind("Odds Ratio" = coef(full.model), confint.default(full.model, level = 0.95)))
@@ -157,7 +238,13 @@ exp(cbind("Odds Ratio" = coef(full.model), confint.default(full.model, level = 0
 prob <- predict(full.model, test, type="response", se.fit=FALSE)
 pred <- factor(ifelse(prob > 0.5,"Yes","No"))
 #create confusion matrix
-confusionMatrix(test$make, pred)
+confusionMatrix(pred, test$class_factor,)
+#predictiing Area Under the Curve 
+auc(test$class_factor, as.numeric(pred))
+
+roc_curve <- roc(test$class_factor, as.numeric(pred))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
 
 ```
 #From VIF check 
@@ -172,3 +259,269 @@ confusionMatrix(test$make, pred)
 #
 #
 #
+
+#Creating a multiple logistic regression model that conducts feature selection
+```{r}
+formula <- formula("class_factor~age+marital_status+education_num+occupation+relationship+sex+race+capital_gain+capital_loss+hours_per_week+native_country")
+#fit model 
+X <- model.matrix(formula, data = train)
+y <- train$class_factor
+
+# Fit the model with cross-validation
+set.seed(123)
+cv_fit <- cv.glmnet(X, y, family = "binomial", alpha = 1)
+
+# Get the lambda that gives the minimum cross-validated error
+lambda_min <- cv_fit$lambda.min
+
+# Refit the model using this lambda
+fit <- glmnet(X, y, family = "binomial", alpha = 1, lambda = lambda_min)
+
+# The nonzero coefficients correspond to the selected features
+coef(fit)
+
+
+# Predict on the test set
+X_test <- model.matrix(formula, data = test)
+predictions = predict(fit, newx = X_test, type = "response")
+predicted_scores = predictions[, 1]
+
+# Create the ROC object
+roc_obj <- roc(test$class_factor, predicted_scores)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+print(paste0("AUC: ", auc_value))
+
+# Convert the predicted scores to class labels (0 or 1) using a threshold (0.5 by default)
+predicted_labels <- ifelse(predicted_scores >= 0.5, 1, 0)
+
+predicted_labels <- as.factor(ifelse(predicted_scores >= 0.5, 1, 0))
+levels(predicted_labels) = c("Yes", "No")
+
+
+levels(test$class_factor) = c("Yes", "No")
+
+confusionMatrix(predicted_labels, test$class_factor)
+
+#create a ROC plot 
+roc_score_cv =roc(test$class_factor, as.numeric(predicted_scores))$auc #AUC score
+print(roc_score_cv)
+
+roc_curve <- roc(test$class_factor, as.numeric(predicted_scores))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+
+
+```{r}
+fitControl<-trainControl(method="repeatedcv",number=10,repeats=1,classProbs=TRUE, summaryFunction=mnLogLoss)
+set.seed(1234)
+
+logistic.fit<-train(formula,
+               data=train,
+               method="glmnet",
+               trControl=fitControl,
+               metric="logLoss")
+
+logistic.fit
+coef(logistic.fit$finalModel,logistic.fit$finalModel$lambdaOpt)
+#Confusion Matrix 
+confusionMatrix(logistic.fit)
+```
+#Objective 2 
+#
+#
+#
+#
+#
+#
+#
+```{r}
+# Create interaction terms
+data$interaction_age_education = data$age * data$education_num
+data$age_squared = data$age^2
+data$education_num_squared = data$education_num^2
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+trainIndex = createDataPartition(data$class_factor, p = 0.7, list = FALSE)
+train_data = data[trainIndex, ]
+test_data = data[-trainIndex, ]
+
+# Define formula for the logistic regression model
+formula = formula("class_factor ~ age + fnlwgt + education_num + workclass + occupation + relationship + race + sex + capital_gain + capital_loss + hours_per_week + native_country + interaction_age_education + age_squared + education_num_squared")
+
+# Fit the model
+X = model.matrix(formula, data = train_data)
+y = train_data$class
+
+# Fit the model with cross-validation
+set.seed(123)
+cv_fit <- cv.glmnet(X, y, family = "binomial", alpha = 1)
+
+# Get the lambda that gives the minimum cross-validated error
+lambda_min <- cv_fit$lambda.min
+
+# Refit the model using this lambda
+fit <- glmnet(X, y, family = "binomial", alpha = 1, lambda = lambda_min)
+
+# The nonzero coefficients correspond to the selected features
+coef(fit)
+
+
+# Predict on the test set
+X_test <- model.matrix(formula, data = test_data)
+predictions <- predict(fit, newx = X_test, type = "response")
+predicted_scores <- predictions[, 1]
+
+# Create the ROC object
+roc_obj <- roc(test_data$class, predicted_scores)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+print(paste0("AUC: ", auc_value))
+
+# Convert the predicted scores to class labels (0 or 1) using a threshold (0.5 by default)
+predicted_labels <- ifelse(predicted_scores >= 0.5, "Yes", "No")
+
+predicted_labels <- as.factor(ifelse(predicted_scores >= 0.5, "Yes", "No"))
+levels(predicted_labels) = c("No", "Yes")
+
+test_data$class <- as.factor(test_data$class)
+levels(test_data$class) = c("No", "Yes")
+
+confusion_matrix <- confusionMatrix(predicted_labels, test_data$class)
+
+
+# Create confusion matrix
+confusionMatrix <- confusionMatrix(predicted_labels, test_data$class, positive = "Yes")
+
+# Print confusion matrix
+print(confusionMatrix)
+
+# Compute metrics
+sensitivity <- confusionMatrix$byClass["Sensitivity"]
+specificity <- confusionMatrix$byClass["Specificity"]
+ppv <- confusionMatrix$byClass["Pos Pred Value"]
+npv <- confusionMatrix$byClass["Neg Pred Value"]
+auroc_complex = auc(roc_obj)
+
+# Print metrics
+cat("Sensitivity (Recall): ", sensitivity, "\n")
+cat("Specificity: ", specificity, "\n")
+cat("Positive Predictive Value (Precision): ", ppv, "\n")
+cat("Negative Predictive Value: ", npv, "\n")
+cat("Area Under the ROC Curve: ", auroc_complex, "\n")
+
+# Prevalence
+prevalence <- sum(test_data$class == "1") / length(test_data$class)
+cat("Prevalence: ", prevalence, "\n")
+
+roc_curve <- roc(test_data$class, as.numeric(predicted_labels))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+
+
+
+
+#LDA Model 
+#
+#
+#
+
+```{r}
+# LDA model
+lda.model <- lda(class_factor~ age + education + marital_status + occupation + relationship + race + sex + hours_per_week + native_country, data = train)
+
+# Predict the response variable for the test set
+lda.predictions <- predict(lda.model, newdata = test, type="class")$class
+length(lda.predictions)
+# Confusion Matrix
+cm <- confusionMatrix(lda.predictions, test$class_factor)
+cm
+auc <- pROC::auc(test$class_factor, as.numeric(lda.predictions))
+# Calculate the AUROC using predicted class labels
+roc_auc_lda <- roc(response = test$class_factor, predictor = as.numeric(lda.predictions))$auc
+roc_auc
+
+roc_curve <- roc(response = test$class_factor, predictor = as.numeric(lda.predictions))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+#
+# write up of findings
+#
+#
+
+
+
+##tree model
+#
+#
+#
+#
+#
+#
+#
+#
+```{r}
+
+# Create the classification tree model
+tree.model <- rpart(class_factor~age+marital_status+education_num+occupation+relationship+sex+race+capital_gain+capital_loss+hours_per_week+native_country, data = train)
+
+# Predict the response variable for the validation set
+tree.predictions <- predict(tree.model, newdata = test, type = "class")
+
+# Convert the predictions to a factor
+tree.predictions <- as.factor(tree.predictions)
+
+# Confusion Matrix
+
+cm <- confusionMatrix(tree.predictions , test$class_factor)
+cm
+
+# Calculate the AUROC using predicted class labels
+roc_auc_tree <- roc(response = test$class_factor, predictor = as.numeric(tree.predictions))$auc
+roc_auc
+
+roc_curve <- roc(response = test$class_factor, predictor = as.numeric(tree.predictions))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+# write up of findings
+#
+#
+#
+
+
+
+#KNN model
+#
+#
+#
+#
+```{r}
+
+
+
+
+
+
+```
+#
+#
+#
+#write up findings 
+
+
+
+
+
+
+#
+#Conclusion
+#
+#
+
