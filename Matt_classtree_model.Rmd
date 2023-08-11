@@ -78,6 +78,8 @@ cm
 ```
 
 ```{r}
+library(pROC)
+
 #Calculate the accuracy, sensitivity, specificity, prevalence, PPV, NPV, and AUROC
 accuracy <- (sum(diag(cm)) / sum(cm)) * 100
 sensitivity = cm[1, 1] / sum(cm[1, ])
@@ -85,9 +87,7 @@ specificity = cm[2, 2] / sum(cm[2, ])
 prevalence = sum(cm[1, ]) / nrow(validate)
 ppv = cm[1, 1] / sum(cm[, 1])
 npv = cm[2, 2] / sum(cm[, 2])
-#auc <- pROC::auc(validate$class, lda.predictions)
-# Calculate the AUROC using predicted class labels
-#roc_auc <- roc(response = validate$class, predictor = lda.predictions)$auc
+auc <- auc(validate$class, as.numeric(tree.predictions))
 
 #Print the results
 print(paste("Accuracy:", accuracy, "%"))
@@ -96,5 +96,17 @@ print(paste("Specificity:", specificity))
 print(paste("Prevalence:", prevalence))
 print(paste("PPV:", ppv))
 print(paste("NPV:", npv))
-#print(paste("AUROC:", auc))
+print(paste("AUROC:", auc))
+```
+```{r}
+library(pROC)
+
+# Convert tree predictions to numeric (probabilities)
+tree.predictions_numeric <- as.numeric(tree.predictions)
+
+# Create the ROC curve
+roc_curve <- roc(validate$class, tree.predictions_numeric)
+
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
 ```
