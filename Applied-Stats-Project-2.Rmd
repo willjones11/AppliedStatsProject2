@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #Installing required packages
 ```{r}
 # Install the necessary packages
-install.packages(c("dplyr", "tidyr", "glmnet", "pROC", "MASS", "car", "polynom", "interactions", "corrplot", "ggplot2", "ggthemes", "ResourceSeelction", "caret", "rpart"))
+install.packages(c("dplyr", "tidyr", "glmnet", "pROC", "MASS", "car", "polynom", "interactions", "corrplot", "ggplot2", "ggthemes", "ResourceSelection", "caret", "rpart"))
 
 # Load the required libraries
 library(dplyr)
@@ -311,24 +311,12 @@ print(roc_score_cv)
 roc_curve <- roc(test$class_factor, as.numeric(predicted_scores))
 # Plot the ROC curve
 plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+
+
 ```
 
 
-```{r}
-fitControl<-trainControl(method="repeatedcv",number=10,repeats=1,classProbs=TRUE, summaryFunction=mnLogLoss)
-set.seed(1234)
 
-logistic.fit<-train(formula,
-               data=train,
-               method="glmnet",
-               trControl=fitControl,
-               metric="logLoss")
-
-logistic.fit
-coef(logistic.fit$finalModel,logistic.fit$finalModel$lambdaOpt)
-#Confusion Matrix 
-confusionMatrix(logistic.fit)
-```
 #Objective 2 
 #
 #
@@ -503,11 +491,62 @@ plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid =
 #
 #
 ```{r}
+# Define trainControl with AUC as the metric
+trControl = trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
 
+# Use tuneLength to tune k
+model = train(
+  class_factor ~ .-class-y,
+  data = train,
+  method = "knn",
+  trControl = trControl,
+  tuneLength = 10,  # Or a different number
+  preProcess = c("center", "scale"),
+  metric = "ROC"
+)
 
+# Print model to get the results
+print(model)
 
+# Predict on test set
+predicted_class_probs = predict(model, newdata = test, type = "prob")
+predicted_class = ifelse(predicted_class_probs[,2] > 0.5, levels(train$class_factor)[2], levels(train$class_factor)[1])  # Threshold can be adjusted
 
+# Convert the predicted and actual class to factor with same levels
+predicted_class = factor(predicted_class, levels = levels(test$class_factor))
+test$class = factor(test$class_factor, levels = levels(predicted_class))
 
+# Evaluate the performance of the model
+cm = confusionMatrix(predicted_class, test$class_factor)
+
+# Extract Sensitivity, Specificity, PPV and NPV
+sensitivity = cm$byClass["Sensitivity"][1]
+specificity = cm$byClass["Specificity"][1]
+
+cat("Sensitivity:", sensitivity, "\n")
+cat("Specificity:", specificity, "\n")
+
+#NPV and PPV
+TP = cm$table[1, 1]
+FP = cm$table[1, 2]
+TN = cm$table[2, 2]
+FN = cm$table[2, 1]
+ppv_manual = TP / (TP + FP)
+npv_manual = TN / (TN + FN)
+cat("Manually computed PPV:", ppv_manual, "\n")
+cat("Manually computed NPV:", npv_manual, "\n")
+
+# Compute and print prevalence
+prevalence = sum(test$class_factor == levels(test$class_factor)[2]) / length(test$class_factor)
+cat("Prevalence:", prevalence, "\n")
+
+# Compute AUROC
+roc_obj = roc(test$class_factor, predicted_class_probs[,2], levels = rev(levels(test$class_factor))) # Specify the order of factor levels for correct computation
+auroc = auc(roc_obj)
+cat("AUROC:", auroc, "\n")
+
+# Plot the ROC curve
+plot(roc_obj, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
 
 ```
 #
