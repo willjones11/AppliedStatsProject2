@@ -415,7 +415,7 @@ plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid =
 
 
 #LDA Model 
-#
+#An LDA model was chosen so that we could have a more interpretive model that was less prone to overfitting. This type of model was also chosen due to the nature of some of the data and the common covariance between some of the variables.
 #
 #
 
@@ -439,7 +439,7 @@ roc_curve <- roc(response = test$class_factor, predictor = as.numeric(lda.predic
 plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
 ```
 #
-# write up of findings
+# An AUROC metric value of 0.733 show a pretty good fitting model that has high discriminative power.
 #
 #
 
@@ -447,7 +447,8 @@ plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid =
 
 ##tree model
 #
-#
+#A Classification Tree model was also used as another means of comparing the performance of our models. This model is highly interpretable and does not make assumptions about the distribution of the data.
+
 #
 #
 #
@@ -478,8 +479,8 @@ roc_curve <- roc(response = test$class_factor, predictor = as.numeric(tree.predi
 # Plot the ROC curve
 plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
 ```
-# write up of findings
 #
+# An AUROC metric value of 0.852 show a even better fitting model that has higher discriminative power.
 #
 #
 
