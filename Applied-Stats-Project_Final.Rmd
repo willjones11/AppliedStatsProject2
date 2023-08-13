@@ -1,12 +1,13 @@
 ---
-title: "Untitled"
+title: "Applied Statistics Project 2"
+author: 'MSDS 6372: William Jones, O\'Neal Gray, Matthew Cusack'
 output: html_document
 date: "2023-07-28"
 editor_options: 
   markdown: 
     wrap: 72
 ---
-
+The goal of this project is to be able to predict if someone will make a salary of $50,000 or not from the UCI adult data set. The following work conducted below is our attempt to answer that goal.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -230,8 +231,8 @@ test <- data[-trainIndex,]
 # Objective 1
 
 #Now we will get into trying to conduct predictive model since the
-response variable is binomial we will try to conduct a multiple logistic
-regression model \#
+#response variable is binomial we will try to conduct a multiple logistic
+#regression model
 
 ```{r}
 
@@ -345,6 +346,10 @@ plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid =
 
 ```
 
+
+From the feature selection model it was choosen due to its ability to dampen the collinearity effect exhibited
+by the variables realtionship and marital status with completely getting rid of the variables. After conducting using
+glmnet the model performed better in all metrics than the complete multiple logistic regression model.
 # Objective 2
 
 # Complex Regression Model
