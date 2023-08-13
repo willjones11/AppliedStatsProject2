@@ -1,0 +1,648 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-07-28"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Installing required packages
+
+```{r}
+# Install the necessary packages
+install.packages(c("dplyr", "tidyr", "glmnet", "pROC", "MASS", "car", "polynom", "interactions", "corrplot", "ggplot2", "ggthemes", "ResourceSelection", "caret", "rpart"))
+
+# Load the required libraries
+library(dplyr)
+library(tidyr)
+library(glmnet)
+library(caret)
+library(pROC)
+library(MASS)
+library(car)
+library(polynom)
+library(interactions)
+library(corrplot)
+library(ggplot2)
+library(ResourceSelection)
+library(rpart)
+
+```
+
+#Reading in the Data
+
+```{r}
+
+# import data
+data <- read.csv('https://raw.githubusercontent.com/willjones11/AppliedStatsProject2/main/adult.data', header=FALSE)
+
+# rename columns
+data <- rename(data, age = V1)
+data <- rename(data, workclass = V2)
+data <- rename(data, fnlwgt = V3)
+data <- rename(data, education = V4)
+data <- rename(data, education_num = V5)
+data <- rename(data, marital_status = V6)
+data <- rename(data, occupation = V7)
+data <- rename(data, relationship = V8)
+data <- rename(data, race = V9)
+data <- rename(data, sex = V10)
+data <- rename(data, capital_gain = V11)
+data <- rename(data, capital_loss = V12)
+data <- rename(data, hours_per_week = V13)
+data <- rename(data, native_country = V14)
+data <- rename(data, class = V15)
+
+# Trim leading and trailing spaces from all character and factor columns -Oneal
+data[] = lapply(data, function(x) if(is.character(x) | is.factor(x)) trimws(x) else x)
+
+# Removing rows with '?' -Oneal
+data = subset(data, !(workclass == "?" | education == "?" | occupation == "?" | native_country == "?"))
+
+
+
+```
+
+#EDA
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+
+#breakdown of eductation
+temp <- data.frame(data)
+temp$education <- factor(temp$education, c('Preschool', '1st-4th', '5th-6th','7th-8th', '9th', '10th', '11th', '12th', 'HS-grad',
+                                           'Some-college', 'Assoc-voc', 'Assoc-acdm', 'Bachelors', 'Masters',
+                                           'Prof-school', 'Doctorate'))
+temp %>% ggplot(aes(x=education)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45))
+
+#breakdown of marital status
+data %>% ggplot(aes(x= marital_status)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+#breakdown of sex
+data %>% ggplot(aes(x=sex, fill=sex)) +
+  geom_histogram(stat='count')
+ggsave('sex.png')
+#breakdown of sex per pay
+data %>% ggplot(aes(x=sex, fill=class)) +
+  geom_histogram(stat='count')
+ggsave('SexperPay.png')
+#breakdown of race 
+data %>% ggplot(aes(x=race)) +
+                  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) + 
+  ggtitle('Break down of Race') + theme_economist()
+ggsave("Race.png")
+
+#breakdown of race 
+data %>% ggplot(aes(x=race, colour=class, fill=class)) +
+                  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) + 
+  ggtitle('Break down of Race') + theme_economist()
+ggsave("RaceperPay.png")
+
+#Breakdown of occupation status
+data %>% ggplot(aes(x=workclass)) + 
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+#breakdown of age
+data %>% ggplot(aes(x=age, fill=class)) + 
+  geom_histogram(stat='bin')
+ggsave("AgeperPay.png")
+
+#breakdown of representation
+data %>% ggplot(aes(x=fnlwgt)) +
+  geom_histogram(stat='bin', colour = 'black', fill='red')
+
+#age vs. representation
+data %>% ggplot(aes(x=age, y=fnlwgt)) + geom_point()
+
+#age vs. representation per sex 
+data %>%  ggplot(aes(x=age, y=fnlwgt, colour = sex)) + geom_point()
+
+#age vs. representation per race
+data %>%  ggplot(aes(x=age, y=fnlwgt, colour = race)) + geom_point()
+
+#breakdown of education per sex
+data %>% ggplot(aes(x=education)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45))
+ggsave('Education.png')
+#breakdown of education per sex
+data %>% ggplot(aes(x=education, fill=class)) +
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45))
+ggsave('EducationperPay.png')
+#Breakdown of occupation status
+data %>% ggplot(aes(x=workclass,fill=sex, colour=sex)) + 
+  geom_histogram(stat='count') + 
+  scale_x_discrete(guide = guide_axis(angle = 45)) 
+
+# breakdown of over/under 50k
+data %>% ggplot(aes(x=class)) + 
+  geom_histogram(stat='count')
+
+#breakdown of hours per week 
+data %>% ggplot(aes(x=hours_per_week)) + geom_histogram(stat='count')
+
+#breakdown of hours per week by class
+data %>% ggplot(aes(x=hours_per_week, fill=class)) + 
+  geom_histogram(stat='count') 
+
+data$y <- ifelse(data$class == '>50K', 1, 0)
+
+
+#Pay by age per sex
+ggplot(data, aes(x=age, y=y, colour=sex)) + geom_point() +
+  geom_smooth(method="loess", linewidth=1)
+
+#pay by age per marital status
+ggplot(data, aes(x=age, y=y, colour=factor(marital_status))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(marital_status))
+
+#pay by age per race
+ggplot(data, aes(x=fnlwgt, y=y, colour=factor(race))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(race))
+
+#pay by age per workclass
+ggplot(data, aes(x=age, y=y, colour=factor(workclass))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(workclass))
+
+#pay by age per state
+ggplot(data, aes(x=age, y=y, colour=factor(native_country))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(native_country))
+
+#pay by education per sex
+ggplot(data, aes(x=education_num, y= y, colour=sex)) + geom_point() +
+  geom_smooth(method="loess", linewidth=1)
+
+#pay by education per race
+ggplot(data, aes(x=education_num, y=y, colour=factor(race))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(race))
+
+#pay by education per workclass
+ggplot(data, aes(x=education_num, y=y, colour=factor(workclass))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(workclass))
+
+#pay by education per country
+ggplot(data, aes(x=age, y=y, colour=factor(native_country))) + geom_point() +
+  geom_smooth(method="loess", linewidth=1) +
+  facet_wrap(~factor(native_country))
+
+
+```
+
+#A train/test split is conducted on the dataset
+
+```{r}
+
+#splitting the data into test/train split
+data$class_factor <- factor(ifelse(data$class == '>50K', "Yes", "No"))
+
+# Define the columns to be treated as factors
+factor_columns <-  c("workclass", "education", "marital_status", "occupation", "relationship", "race", "sex", "native_country")
+print(data[factor_columns])
+# Convert these columns to factors
+data[factor_columns] <- lapply(data[factor_columns], factor)
+set.seed(123)
+trainIndex <- createDataPartition(data$class, p=.7, list=F)
+train <- data[trainIndex,]
+test <- data[-trainIndex,]
+```
+
+# Objective 1
+
+#Now we will get into trying to conduct predictive model since the
+response variable is binomial we will try to conduct a multiple logistic
+regression model \#
+
+```{r}
+
+#modeling everything 
+full.model <- glm(class_factor~age+marital_status+education_num+occupation+relationship+sex+race+capital_gain+capital_loss+hours_per_week+native_country,data = train, family='binomial')
+
+#check for multicolinearity
+vif(full.model)
+
+#Assessing the goodness of fit
+hoslem.test(train$class_factor, fitted(full.model))
+
+#odds ratio interpretation of variable
+exp(cbind("Odds Ratio" = coef(full.model), confint.default(full.model, level = 0.95)))
+
+# Predict the response variable for the test set
+prob <- predict(full.model, test, type="response", se.fit=FALSE)
+pred <- factor(ifelse(prob > 0.5,"Yes","No"))
+#create confusion matrix
+confusionMatrix(pred, test$class_factor,)
+#predictiing Area Under the Curve 
+auc(test$class_factor, as.numeric(pred))
+
+roc_curve <- roc(test$class_factor, as.numeric(pred))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+
+```
+
+#From VIF check \# looking at the variableds from the generalized square
+variance inflation factor most of the variables are not suspected of
+mutlicolinearity but relationship and `marital status` have a high VIF
+so they should be removed from further models because of the
+mutlicolinearity \# The Hosmer Lemeshow test yielded a p-value of
+2.2e-16 indicating that the current model fits the data well.\
+\# Some interpretations of the variables based upon the odds ratio \#
+#The odds of \# \# \# \# \# \#
+
+#Creating a multiple logistic regression model that conducts feature
+selection
+
+```{r}
+formula <- formula("class_factor~age+marital_status+education_num+occupation+relationship+sex+race+capital_gain+capital_loss+hours_per_week+native_country")
+#fit model 
+X <- model.matrix(formula, data = train)
+y <- train$class_factor
+
+# Fit the model with cross-validation
+set.seed(123)
+cv_fit <- cv.glmnet(X, y, family = "binomial", alpha = 1)
+
+# Get the lambda that gives the minimum cross-validated error
+lambda_min <- cv_fit$lambda.min
+
+# Refit the model using this lambda
+fit <- glmnet(X, y, family = "binomial", alpha = 1, lambda = lambda_min)
+
+# The nonzero coefficients correspond to the selected features
+coef(fit)
+
+
+# Predict on the test set
+X_test <- model.matrix(formula, data = test)
+predictions = predict(fit, newx = X_test, type = "response")
+predicted_scores = predictions[, 1]
+
+# Create the ROC object
+roc_obj <- roc(test$class_factor, predicted_scores)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+print(paste0("AUC: ", auc_value))
+
+# Convert the predicted scores to class labels (0 or 1) using a threshold (0.5 by default)
+predicted_labels <- ifelse(predicted_scores >= 0.5, 1, 0)
+
+predicted_labels <- as.factor(ifelse(predicted_scores >= 0.5, 1, 0))
+levels(predicted_labels) = c("Yes", "No")
+
+
+levels(test$class_factor) = c("Yes", "No")
+
+confusionMatrix(predicted_labels, test$class_factor)
+
+#create a ROC plot 
+roc_score_cv =roc(test$class_factor, as.numeric(predicted_scores))$auc #AUC score
+print(roc_score_cv)
+
+roc_curve <- roc(test$class_factor, as.numeric(predicted_scores))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+
+
+```
+
+# Objective 2
+
+# Complex Regression Model
+
+A complex regression model was chosen becuase it offers interpretability
+and is less prone to overfitting compared to other models. Additionally,
+the complex regression model was suitable for handling the nature of the
+data and the potential covariance between variables.
+
+```{r}
+# Create interaction terms
+data$interaction_age_education = data$age * data$education_num
+data$age_squared = data$age^2
+data$education_num_squared = data$education_num^2
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+trainIndex = createDataPartition(data$class_factor, p = 0.7, list = FALSE)
+train_data = data[trainIndex, ]
+test_data = data[-trainIndex, ]
+
+# Define formula for the logistic regression model
+formula = formula("class_factor ~ age + fnlwgt + education_num + workclass + occupation + relationship + race + sex + capital_gain + capital_loss + hours_per_week + native_country + interaction_age_education + age_squared + education_num_squared")
+
+# Fit the model
+X = model.matrix(formula, data = train_data)
+y = train_data$class
+
+# Fit the model with cross-validation
+set.seed(123)
+cv_fit <- cv.glmnet(X, y, family = "binomial", alpha = 1)
+
+# Get the lambda that gives the minimum cross-validated error
+lambda_min <- cv_fit$lambda.min
+
+# Refit the model using this lambda
+fit <- glmnet(X, y, family = "binomial", alpha = 1, lambda = lambda_min)
+
+# The nonzero coefficients correspond to the selected features
+coef(fit)
+
+
+# Predict on the test set
+X_test <- model.matrix(formula, data = test_data)
+predictions <- predict(fit, newx = X_test, type = "response")
+predicted_scores <- predictions[, 1]
+
+# Create the ROC object
+roc_obj <- roc(test_data$class, predicted_scores)
+
+# Calculate the AUC
+auc_value <- auc(roc_obj)
+print(paste0("AUC: ", auc_value))
+
+# Convert the predicted scores to class labels (0 or 1) using a threshold (0.5 by default)
+predicted_labels <- ifelse(predicted_scores >= 0.5, "Yes", "No")
+
+predicted_labels <- as.factor(ifelse(predicted_scores >= 0.5, "Yes", "No"))
+levels(predicted_labels) = c("No", "Yes")
+
+test_data$class <- as.factor(test_data$class)
+levels(test_data$class) = c("No", "Yes")
+
+confusion_matrix <- confusionMatrix(predicted_labels, test_data$class)
+
+
+# Create confusion matrix
+confusionMatrix <- confusionMatrix(predicted_labels, test_data$class, positive = "Yes")
+
+# Print confusion matrix
+print(confusionMatrix)
+
+# Compute metrics
+sensitivity <- confusionMatrix$byClass["Sensitivity"]
+specificity <- confusionMatrix$byClass["Specificity"]
+ppv <- confusionMatrix$byClass["Pos Pred Value"]
+npv <- confusionMatrix$byClass["Neg Pred Value"]
+auroc_complex = auc(roc_obj)
+
+# Print metrics
+cat("Sensitivity (Recall): ", sensitivity, "\n")
+cat("Specificity: ", specificity, "\n")
+cat("Positive Predictive Value (Precision): ", ppv, "\n")
+cat("Negative Predictive Value: ", npv, "\n")
+cat("Area Under the ROC Curve: ", auroc_complex, "\n")
+
+# Prevalence
+prevalence <- sum(test_data$class == "1") / length(test_data$class)
+cat("Prevalence: ", prevalence, "\n")
+
+roc_curve <- roc(test_data$class, as.numeric(predicted_labels))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+
+**Write up of Findings** - The complex logistic regression model
+achieved an accuracy of 85.23%, indicating a good overall predictive
+performance. The model demonstrated a high sensitivity of 0.932378,
+suggesting a strong ability to correctly identify individuals with an
+income above \$50,000. However, the specificity was lower at 0.609973,
+indicating a moderate ability to accurately identify individuals with an
+income below \$50,000.
+
+The prevalence of individuals earning above \$50,000 was 0.7517683,
+while the positive predictive value (PPV) was 0.8786367, indicating a
+relatively high proportion of true positives among the predicted
+positive cases. The negative predictive value (NPV) was 0.7486339,
+suggesting a moderate proportion of true negatives among the predicted
+negative cases.
+
+The area under the receiver operating characteristic curve (AUROC) was
+0.77323, indicating a fair discriminative ability of the model in
+distinguishing between individuals with different income levels.
+
+In summary, the complex logistic regression model showed promising
+performance in predicting whether an individual earns above or below
+\$50,000 based on personal and socioeconomic attributes. It demonstrated
+high sensitivity, but lower specificity, and achieved an overall
+accuracy of 85.23%.
+
+# LDA Model
+
+An LDA model was chosen so that we could have a more interpretive model
+that was less prone to overfitting. This type of model was also chosen
+due to the nature of some of the data and the common covariance between
+some of the variables. \# \#
+
+```{r}
+# LDA model
+lda.model <- lda(class_factor~ age + education + marital_status + occupation + relationship + race + sex + hours_per_week + native_country, data = train)
+
+# Predict the response variable for the test set
+lda.predictions <- predict(lda.model, newdata = test, type="class")$class
+length(lda.predictions)
+# Confusion Matrix
+cm <- confusionMatrix(lda.predictions, test$class_factor)
+cm
+auc <- pROC::auc(test$class_factor, as.numeric(lda.predictions))
+# Calculate the AUROC using predicted class labels
+roc_auc_lda <- roc(response = test$class_factor, predictor = as.numeric(lda.predictions))$auc
+roc_auc
+
+roc_curve <- roc(response = test$class_factor, predictor = as.numeric(lda.predictions))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+
+Write up of Findings - An AUROC metric value of 0.733 show a pretty good
+fitting model that has high discriminative power.
+
+# 
+
+# Classification Tree Model
+
+A Classification Tree model was also used as another means of comparing
+the performance of our models. This model is highly interpretable and
+does not make assumptions about the distribution of the data.
+
+```{r}
+
+# Create the classification tree model
+tree.model <- rpart(class_factor~age+marital_status+education_num+occupation+relationship+sex+race+capital_gain+capital_loss+hours_per_week+native_country, data = train)
+
+# Predict the response variable for the validation set
+tree.predictions <- predict(tree.model, newdata = test, type = "class")
+
+# Convert the predictions to a factor
+tree.predictions <- as.factor(tree.predictions)
+
+# Confusion Matrix
+
+cm <- confusionMatrix(tree.predictions , test$class_factor)
+cm
+
+# Calculate the AUROC using predicted class labels
+roc_auc_tree <- roc(response = test$class_factor, predictor = as.numeric(tree.predictions))$auc
+roc_auc
+
+roc_curve <- roc(response = test$class_factor, predictor = as.numeric(tree.predictions))
+# Plot the ROC curve
+plot(roc_curve, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+```
+
+Write up of Findings - An AUROC metric value of 0.852 show a even better
+fitting model that has higher discriminative power.
+
+# KNN Model
+
+A KNN model was a good fit for this data due to its simplicity,
+flexibility, and interpretability. It provided a reliable approach for
+predicting income levels based on the selected attributes while being
+less prone to overfitting and accommodating potential covariance between
+variables.
+
+```{r}
+# Define trainControl with AUC as the metric
+trControl = trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+
+# Use tuneLength to tune k
+model = train(
+  class_factor ~ .-class-y,
+  data = train,
+  method = "knn",
+  trControl = trControl,
+  tuneLength = 10,  # Or a different number
+  preProcess = c("center", "scale"),
+  metric = "ROC"
+)
+
+# Print model to get the results
+print(model)
+
+# Predict on test set
+predicted_class_probs = predict(model, newdata = test, type = "prob")
+predicted_class = ifelse(predicted_class_probs[,2] > 0.5, levels(train$class_factor)[2], levels(train$class_factor)[1])  # Threshold can be adjusted
+
+# Convert the predicted and actual class to factor with same levels
+predicted_class = factor(predicted_class, levels = levels(test$class_factor))
+test$class = factor(test$class_factor, levels = levels(predicted_class))
+
+# Evaluate the performance of the model
+cm = confusionMatrix(predicted_class, test$class_factor)
+
+# Extract Sensitivity, Specificity, PPV and NPV
+sensitivity = cm$byClass["Sensitivity"][1]
+specificity = cm$byClass["Specificity"][1]
+
+cat("Sensitivity:", sensitivity, "\n")
+cat("Specificity:", specificity, "\n")
+
+#NPV and PPV
+TP = cm$table[1, 1]
+FP = cm$table[1, 2]
+TN = cm$table[2, 2]
+FN = cm$table[2, 1]
+ppv_manual = TP / (TP + FP)
+npv_manual = TN / (TN + FN)
+cat("Manually computed PPV:", ppv_manual, "\n")
+cat("Manually computed NPV:", npv_manual, "\n")
+
+# Compute and print prevalence
+prevalence = sum(test$class_factor == levels(test$class_factor)[2]) / length(test$class_factor)
+cat("Prevalence:", prevalence, "\n")
+
+# Compute AUROC
+roc_obj = roc(test$class_factor, predicted_class_probs[,2], levels = rev(levels(test$class_factor))) # Specify the order of factor levels for correct computation
+auroc = auc(roc_obj)
+cat("AUROC:", auroc, "\n")
+
+# Plot the ROC curve
+plot(roc_obj, print.auc = TRUE, main = "ROC Curve", auc.polygon = TRUE, grid = TRUE)
+
+```
+
+[**Write up of Findings**]{.underline} - The K-Nearest Neighbors (KNN)
+model achieved an accuracy of 82.50% in predicting whether an
+individual's earnings are above or below \$50,000. The model
+demonstrated a high sensitivity of 90.04%, indicating its strong ability
+to correctly identify individuals with an income above the threshold.
+
+However, the specificity was lower at 58.76%, suggesting a moderate
+ability to accurately identify individuals with an income below the
+threshold. The prevalence of individuals earning above \$50,000 was
+24.08%. The positive predictive value (PPV) was 0.8731529, indicating a
+relatively high proportion of true positives among the predicted
+positive cases. The negative predictive value (NPV) was 0.6515794,
+suggesting a moderate proportion of true negatives among the predicted
+negative cases.
+
+The area under the receiver operating characteristic curve (AUROC) was
+0.8668326, indicating a good discriminative ability of the model in
+distinguishing between individuals with different income levels.
+
+In summary, the KNN model demonstrated promising performance in
+predicting whether an individual earns above or below \$50,000 based on
+the selected attributes. It achieved a high sensitivity and overall
+accuracy of 82.50%, indicating its effectiveness in identifying
+individuals with higher earnings. However, the model's specificity was
+relatively lower, suggesting room for improvement in accurately
+identifying individuals with lower earnings.
+
+[**Conclusion**]{.underline}
+
+In conclusion, we have evaluated and compared multiple models for
+predicting whether an individual earns above or below \$50,000 based on
+personal and socioeconomic attributes.
+
+Starting with the multiple linear regression (MLR) model, it achieved an
+accuracy of 85.06% and demonstrated a relatively high sensitivity of
+0.8808. The MLR model showed good performance in distinguishing between
+individuals with different income levels, as indicated by an AUROC of
+0.764. However, there were concerns regarding multicollinearity between
+the variables Relationship and Marital Status.
+
+Next, we explored an MLR model with feature selection. By using the
+'glmnet' method, we addressed multicollinearity issues and improved the
+model's AUROC to 0.9018. This model achieved an accuracy of 84.45% and
+demonstrated a high sensitivity of 0.9253, indicating its effectiveness
+in identifying individuals with higher incomes.
+
+Moving on to the complex logistic regression model, it achieved an
+accuracy of 85.23% and demonstrated a high sensitivity of 0.932378.
+While the specificity was lower at 0.609973, the model showed promising
+performance in distinguishing between income levels, as indicated by an
+AUROC of 0.77323.
+
+The K-Nearest Neighbors (KNN) model achieved an accuracy of 82.50% and
+demonstrated a sensitivity of 0.900356. With an AUROC of 0.8668326, the
+KNN model exhibited good performance in distinguishing between
+individuals with different income levels.
+
+Lastly, the classification tree model had an accuracy of 54.59% but
+showed a high sensitivity of 0.944479. The AUROC of 0.851964 indicated a
+relatively good performance in distinguishing between income levels,
+despite the lower accuracy.
+
+Considering the overall findings, the MLR model with feature selection
+and the complex logistic regression model showed the most promising
+performance in predicting income levels.
