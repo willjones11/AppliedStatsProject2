@@ -268,7 +268,25 @@ so they should be removed from further models because of the
 mutlicolinearity \# The Hosmer Lemeshow test yielded a p-value of
 2.2e-16 indicating that the current model fits the data well.\
 \# Some interpretations of the variables based upon the odds ratio \#
-#The odds of \# \# \# \# \# \#
+
+Based on the odds ratio, the variables "age," "capital_gain - loss &
+gain," and "hours_per_week" appear to be important in relation to the
+outcome variable. However, the odds ratio of 1.0 for these variables
+suggests that there is no significant association between them and the
+outcome.
+
+The odds ratio of 1.0 indicates that there is no change in the odds of
+the outcome occurring based on the values of these variables. In other
+words, these variables do not provide any additional predictive power or
+influence on the outcome.
+
+Similarly, the remaining variables, such as marital status, education
+level, occupation, relationship status, sex, race, and native country,
+all have odds ratios of 1.0, indicating no significant association with
+the outcome variable.
+
+Therefore, based on the odds ratio, none of the variables in the
+analysis exhibit a significant association with the outcome.
 
 #Creating a multiple logistic regression model that conducts feature
 selection
